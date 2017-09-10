@@ -17,17 +17,18 @@ namespace Escape
 				echo 'Password was not set, expect failure.';
 			}
 			$this->db = $database;
-			try
+			
+			//supress warnings on constructor
+			$this->conn = @new \mysqli($this->servername, $this->username, $this->pass);
+				
+			if($this->conn->connect_error)
 			{
-				$this->conn = new \mysqli($this->servername, $this->username, $this->pass);
-				$this->conn->query('USE '.$this->db);
+				echo "Unable to connect to DB. Are you using the correct username / password?".PHP_EOL;
+				echo $this->conn->connect_error.PHP_EOL;
+				die();
 			}
-			catch (Exception $e)
-			{
-				echo "Exception Occurred, was unable to connect to MySQL Server. Are you using the correct permissions?";
-				echo $e;
-			}
-
+			$this->conn->query('USE '.$this->db);
+			
 			$this->tables = [];
 			$this->output = $output;
 			$this->file = fopen($this->output,'w+') or die('Could not open output file');
