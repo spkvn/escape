@@ -23,7 +23,7 @@ namespace Escape
 				
 			if($this->conn->connect_error)
 			{
-				echo "Unable to connect to DB. Are you using the correct username / password?".PHP_EOL;
+				echo "Can't connect to MySQL DB. Are you using the correct username / password?".PHP_EOL;
 				echo $this->conn->connect_error.PHP_EOL;
 				die();
 			}
@@ -32,11 +32,13 @@ namespace Escape
 			$this->tables = [];
 			$this->output = $output;
 			$this->file = fopen($this->output,'w+') or die('Could not open output file');
-			$this->getTables($this->conn->query("SHOW TABLES;"));
+			$this->getTables();
 		}
 
-		public function getTables(\mysqli_result $queryResult)
+		public function getTables()
 		{
+			$queryResult = $this->conn->query("SHOW TABLES;");
+
 			if($queryResult->num_rows > 0)
 			{
 				while($row = $queryResult->fetch_assoc())
@@ -52,10 +54,38 @@ namespace Escape
 
 		public function fillTables()
 		{
+			$foreignTables;
 			foreach($this->tables as $table)
 			{
-				$result = $this->conn->query('SELECT * FROM '.$table->name);
-				$table->setData($result);
+				echo "##########Checking out ".$table->name.PHP_EOL;
+				$createTable = $this->conn->query('SHOW CREATE TABLE '.$table->name)->fetch_assoc();
+				$numForeignKeys = substr_count($createTable['Create Table'], 'FOREIGN KEY');
+
+				if($numForeignKeys > 0)
+				{
+					if($numForeignKeys > 1)
+					{
+						echo $table->name." determined to be weak entity.".PHP_EOL;
+					}
+					else
+					{
+						// $foreignTables[] = //foreign table's name
+						echo $table->name." determined to refer to one other table. Could be the 'one side' of a one to many relationship.".PHP_EOL;
+						//check foreign table.
+					}
+				}
+				else
+				{
+					// if(in_array($table->name, $foreignTables))
+					// {
+					// 	echo $table->name." has already been processed, and determined to be a child entity."PHP_EOL
+					// }
+					// else
+					// {
+						echo $table->name." has no foreign keys, isolated table.".PHP_EOL;
+					// }
+				}
+				echo PHP_EOL;
 			}
 		}
 
