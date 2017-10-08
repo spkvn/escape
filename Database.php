@@ -54,7 +54,7 @@ namespace Escape
 
 		public function fillTables()
 		{
-			$foreignTables;
+			$foreignTables = array();
 			foreach($this->tables as $table)
 			{
 				echo "##########Checking out ".$table->name.PHP_EOL;
@@ -65,20 +65,29 @@ namespace Escape
 				{
 					if($numForeignKeys > 1)
 					{
-						echo $table->name." determined to be weak entity.".PHP_EOL;
+						echo $table->name." determined to be weak entity. Will use db references".PHP_EOL;
+
+						foreach($this->tables as $secondaryTable)
+						{
+							$foreignTables[] = $this->getForeignsInCreateTableStatement($createTable['Create Table'], $secondaryTable->name);
+						}
 					}
 					else
 					{
 						// $foreignTables[] = //foreign table's name
-						echo $table->name." determined to refer to one other table. Could be the 'one side' of a one to many relationship.".PHP_EOL;
-						//check foreign table.
+						echo $table->name." determined to refer to one other table. Going to store child elements as a encapsulated document.".PHP_EOL;
+						foreach($this->tables as $secondaryTable)
+						{
+							$foreignTables[] = $this->getForeignsInCreateTableStatement($createTable['Create Table'], $secondaryTable->name);
+						}
+						//var_dump($foreignTables);
 					}
 				}
 				else
 				{
 					// if(in_array($table->name, $foreignTables))
 					// {
-					// 	echo $table->name." has already been processed, and determined to be a child entity."PHP_EOL
+					// 	echo $table->name." has already been processed, and determined to be a child entity."PHP_EOL;
 					// }
 					// else
 					// {
@@ -87,6 +96,53 @@ namespace Escape
 				}
 				echo PHP_EOL;
 			}
+		}
+
+		public function getForeignsInCreateTableStatement($createTable, $foreignName)
+		{
+			$constraints = array();
+
+			preg_match('/FOREIGN KEY \(`[0-9A-Za-z_]*`\) REFERENCES `[0-9A-Za-z_]*` \(`[0-9A-Za-z_]*`\)[,]?/',$createTable,$constraints);
+
+			var_dump('Constraints', $constraints);
+
+			foreach($constraints as $constraint)
+			{
+				$start = 14; //F O R E I G N   K E Y ( `
+				$end   = strpos($constraint, '`)');
+				$length = $end - $start;
+				$foreignKey = substr($constraint, $start, $length);
+				// var_dump('Foreign Key', $foreignKey);
+
+				$start = $end + 14 ;//) REFERENCES ` 
+				$end = strpos($constraint, '` (',$start);
+				$length = $end-$start;
+				$tableName = substr($constraint, $start, $end);
+
+				$start = $end + 3; // (`;
+				$end = strpos($constraint, '`)',$start);
+				$length = $end-$start;
+				$matchingColumn = substr($constraint,$start,$end);
+
+				var_dump($foreignKey,$tableName,$matchingColumn);
+			}
+			// //track last position
+			// $lastPos = 0; 
+			// $length = strlen($foreignName);
+			// $foreignName = "REFERENCES `".$foreignName."`";
+			// $toReturnNames = null;
+			
+			// if($lastPos = strpos($createTable,$foreignName,$lastPos) !== false)
+			// {
+			// 	$length = strlen($foreignName);
+			// 	$lastPos = $lastPos + $length;
+			// 	$toReturnNames = substr($createTable, $lastPos, $length);
+			// 	var_dump($toReturnNames);
+			// }
+
+			// if(isset($toReturnNames)){
+			// 	return $toReturnNames;
+			// }
 		}
 
 		public function writeOutput()

@@ -32,6 +32,7 @@ namespace Escape
 
 		public $name;
 		public $data;
+		public $relationships;//['tablename' => 'x', 'localKey' => 'x_id','foreignKey' => 'x.id']
 	}
 }
 ?>
