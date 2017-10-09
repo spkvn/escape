@@ -104,7 +104,7 @@ namespace Escape
 
 			preg_match('/FOREIGN KEY \(`[0-9A-Za-z_]*`\) REFERENCES `[0-9A-Za-z_]*` \(`[0-9A-Za-z_]*`\)[,]?/',$createTable,$constraints);
 
-			var_dump('Constraints', $constraints);
+			// var_dump('Constraints', $constraints);
 
 			foreach($constraints as $constraint)
 			{
@@ -113,18 +113,20 @@ namespace Escape
 				$length = $end - $start;
 				$foreignKey = substr($constraint, $start, $length);
 				// var_dump('Foreign Key', $foreignKey);
+				echo "Foreign Key: ".$foreignKey.PHP_EOL;
 
-				$start = $end + 14 ;//) REFERENCES ` 
-				$end = strpos($constraint, '` (',$start);
+				$start = $end + 15 ;//) REFERENCES ` ` 
+				$end = strpos($constraint, '`',$start);
 				$length = $end-$start;
-				$tableName = substr($constraint, $start, $end);
+				$tableName = substr($constraint, $start, $length);
+				echo "Table Name: ".$tableName.PHP_EOL;
 
-				$start = $end + 3; // (`;
+				$start = $end + 4; // (`;
 				$end = strpos($constraint, '`)',$start);
 				$length = $end-$start;
-				$matchingColumn = substr($constraint,$start,$end);
-
-				var_dump($foreignKey,$tableName,$matchingColumn);
+				$matchingColumn = substr($constraint,$start,$length);
+				echo "matchingColumn: ".$matchingColumn.PHP_EOL;
+				// var_dump($foreignKey,$tableName,$matchingColumn);
 			}
 			// //track last position
 			// $lastPos = 0; 
