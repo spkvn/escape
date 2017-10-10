@@ -55,6 +55,7 @@ namespace Escape
 		public function fillTables()
 		{
 			$processedTables = array();
+			$dbJSON = array();
 			foreach($this->tables as $table)
 			{
 				echo "##########Checking out ".$table->name.PHP_EOL;
@@ -63,19 +64,19 @@ namespace Escape
 
 				if($numForeignKeys > 0)
 				{
-					if($numForeignKeys > 1)
-					{
-						echo $table->name." determined to be weak entity. Will use db references".PHP_EOL;
+					// if($numForeignKeys > 1)
+					// {
+					// 	echo $table->name." determined to be weak entity. Will use db references".PHP_EOL;
 
-						$foreignTables = $this->getForeignsInCreateTableStatement($createTable['Create Table']);
+					// 	$foreignTables = $this->getForeignsInCreateTableStatement($createTable['Create Table']);
 						
-						foreach($foreignTables as $ft)
-						{
-							$processedTables[] = $ft['foreignTable'];
-						}
-					}
-					else
-					{
+					// 	foreach($foreignTables as $ft)
+					// 	{
+					// 		$processedTables[] = $ft['foreignTable'];
+					// 	}
+					// }
+					// else
+					// {
 						echo $table->name." determined to refer to one other table. Going to store child elements as a encapsulated document.".PHP_EOL;
 						
 						$foreignTables = $this->getForeignsInCreateTableStatement($createTable['Create Table']);
@@ -115,11 +116,11 @@ namespace Escape
 							}
 							
 							//parentJSON contains the entire table, with embedded documents.
-							$parentJSON = json_encode($parentJSON);
+							$dbJSON[] = [$table->name => $parentJSON];
 
 							$processedTables[] = $ft['foreignTable'];
 						}
-					}
+					// }
 				}
 				else
 				{
@@ -129,11 +130,27 @@ namespace Escape
 					}
 					else
 					{
-						echo $table->name." has no foreign keys, isolated table.".PHP_EOL;
+						//empty array for entire table.
+						$parentJSON = array();
+
+						//get all rows of a table.
+						$parentRow = $this->conn->query('SELECT * FROM '.$table->name);
+						
+						//while there are still parents to be processed
+						while($pRow = $parentRow->fetch_assoc())
+						{
+							$parentJSON[] = $pRow;
+						}
+						
+						//parentJSON contains the entire table, with embedded documents.
+						$dbJSON[] = [$table->name => $parentJSON];
+
+						// $processedTables[] = $ft['foreignTable'];
 					}
 				}
 				echo PHP_EOL;
 			}
+			var_dump(json_encode($dbJSON));
 		}
 
 		public function getForeignsInCreateTableStatement($createTable)
