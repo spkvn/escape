@@ -43,7 +43,7 @@ namespace Escape
 			{
 				while($row = $queryResult->fetch_assoc())
 				{
-					array_push($this->tables, new \Escape\Table($row['Tables_in_'.$this->db]));
+					array_push($this->tables, new \Escape\Table($row['Tables_in_'.$this->db],null,null));
 				}
 			}
 			else
@@ -54,7 +54,7 @@ namespace Escape
 
 		public function fillTables()
 		{
-			$foreignTables = array();
+			$processedTables = array();
 			foreach($this->tables as $table)
 			{
 				echo "##########Checking out ".$table->name.PHP_EOL;
@@ -67,52 +67,88 @@ namespace Escape
 					{
 						echo $table->name." determined to be weak entity. Will use db references".PHP_EOL;
 
-						foreach($this->tables as $secondaryTable)
+						$foreignTables = $this->getForeignsInCreateTableStatement($createTable['Create Table']);
+						
+						foreach($foreignTables as $ft)
 						{
-							$foreignTables[] = $this->getForeignsInCreateTableStatement($createTable['Create Table'], $secondaryTable->name);
+							$processedTables[] = $ft['foreignTable'];
 						}
 					}
 					else
 					{
-						// $foreignTables[] = //foreign table's name
 						echo $table->name." determined to refer to one other table. Going to store child elements as a encapsulated document.".PHP_EOL;
-						foreach($this->tables as $secondaryTable)
+						
+						$foreignTables = $this->getForeignsInCreateTableStatement($createTable['Create Table']);
+						
+						foreach($foreignTables as $ft)
 						{
-							$foreignTables[] = $this->getForeignsInCreateTableStatement($createTable['Create Table'], $secondaryTable->name);
+							//empty array for entire table.
+							$parentJSON = array();
+
+							//get all rows of a table.
+							$parentRow = $this->conn->query('SELECT * FROM '.$table->name);
+							
+							//while there are still parents to be processed
+							while($pRow = $parentRow->fetch_assoc())
+							{
+								//select all rows which are children of this parent
+								$query = "SELECT DISTINCT c.* FROM ".$table->name." AS p".
+										 " INNER JOIN ".$ft['foreignTable'].
+										 " AS c ON c.".$ft['matchingColumn'].
+										 " = p.".$ft['foreignKey'].
+										 " WHERE c.".$ft['matchingColumn']." = ".$pRow[$ft['foreignKey']];
+								$childRow = $this->conn->query($query);
+
+								//store all children in array
+								$childrenJSON = array();
+
+								// get all child elements into an array
+								while($cRow = $childRow->fetch_assoc())
+								{
+									$childrenJSON[] = $cRow;
+								}
+
+								//put children in place of parent foreign key
+								$pRow[$ft['foreignKey']] = $childrenJSON;
+
+								$parentJSON[] = $pRow;
+							}
+							
+							//parentJSON contains the entire table, with embedded documents.
+							$parentJSON = json_encode($parentJSON);
+
+							$processedTables[] = $ft['foreignTable'];
 						}
-						//var_dump($foreignTables);
 					}
 				}
 				else
 				{
-					// if(in_array($table->name, $foreignTables))
-					// {
-					// 	echo $table->name." has already been processed, and determined to be a child entity."PHP_EOL;
-					// }
-					// else
-					// {
+					if(in_array($table->name, $processedTables))
+					{
+						echo $table->name." has already been processed, and determined to be a child entity.".PHP_EOL;
+					}
+					else
+					{
 						echo $table->name." has no foreign keys, isolated table.".PHP_EOL;
-					// }
+					}
 				}
 				echo PHP_EOL;
 			}
 		}
 
-		public function getForeignsInCreateTableStatement($createTable, $foreignName)
+		public function getForeignsInCreateTableStatement($createTable)
 		{
-			$constraints = array();
+			$constraints = [];
+			$foreignTables = array();
 
-			preg_match('/FOREIGN KEY \(`[0-9A-Za-z_]*`\) REFERENCES `[0-9A-Za-z_]*` \(`[0-9A-Za-z_]*`\)[,]?/',$createTable,$constraints);
-
-			// var_dump('Constraints', $constraints);
-
-			foreach($constraints as $constraint)
+			preg_match_all('/FOREIGN KEY \(`[0-9A-Za-z_]*`\) REFERENCES `[0-9A-Za-z_]*` \(`[0-9A-Za-z_]*`\)[,]?/',$createTable,$constraints);
+			
+			foreach($constraints[0] as $constraint)
 			{
 				$start = 14; //F O R E I G N   K E Y ( `
 				$end   = strpos($constraint, '`)');
 				$length = $end - $start;
 				$foreignKey = substr($constraint, $start, $length);
-				// var_dump('Foreign Key', $foreignKey);
 				echo "Foreign Key: ".$foreignKey.PHP_EOL;
 
 				$start = $end + 15 ;//) REFERENCES ` ` 
@@ -126,25 +162,14 @@ namespace Escape
 				$length = $end-$start;
 				$matchingColumn = substr($constraint,$start,$length);
 				echo "matchingColumn: ".$matchingColumn.PHP_EOL;
-				// var_dump($foreignKey,$tableName,$matchingColumn);
-			}
-			// //track last position
-			// $lastPos = 0; 
-			// $length = strlen($foreignName);
-			// $foreignName = "REFERENCES `".$foreignName."`";
-			// $toReturnNames = null;
-			
-			// if($lastPos = strpos($createTable,$foreignName,$lastPos) !== false)
-			// {
-			// 	$length = strlen($foreignName);
-			// 	$lastPos = $lastPos + $length;
-			// 	$toReturnNames = substr($createTable, $lastPos, $length);
-			// 	var_dump($toReturnNames);
-			// }
 
-			// if(isset($toReturnNames)){
-			// 	return $toReturnNames;
-			// }
+				$foreignTables[] = [
+					'foreignKey' => $foreignKey, 
+					'foreignTable' => $tableName, 
+					'matchingColumn' => $matchingColumn
+				];
+			}
+			return $foreignTables;
 		}
 
 		public function writeOutput()

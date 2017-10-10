@@ -3,10 +3,11 @@ namespace Escape
 {
 	Class Table
 	{
-		public function __construct($name, $data = null)
+		public function __construct($name, $data = null, $type)
 		{
 			$this->name  = $name;
 			$this->data = $data;
+			$this->type = $type;
 		}
 
 		public function setData(\mysqli_result $result)
@@ -33,6 +34,7 @@ namespace Escape
 		public $name;
 		public $data;
 		public $relationships;//['tablename' => 'x', 'localKey' => 'x_id','foreignKey' => 'x.id']
+		public $type;
 	}
 }
 ?>
